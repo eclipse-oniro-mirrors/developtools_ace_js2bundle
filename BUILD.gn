@@ -87,7 +87,10 @@ ohos_copy("ace_loader") {
 }
 
 ohos_copy("ace_loader_library") {
-  deps = [ ":build_ace_loader_library" ]
+  deps = [
+    ":build_ace_loader_library",
+    ":remove_unwanted_node_modules_files",
+  ]
   sources = [ ace_loader_lib_dir ]
   outputs = [ target_out_dir + "/$target_name" ]
   module_source_dir = target_out_dir + "/$target_name"
@@ -144,7 +147,6 @@ ohos_copy("ace_loader_ark_hap") {
     ":ace_loader",
     ":ace_loader_ark",
     ":build_ace_loader_library",
-    ":remove_unwanted_node_modules_files",
   ]
   if (!is_arkui_x) {
     external_deps = [ "ace_ets2bundle:ets_loader_ark_hap" ]
