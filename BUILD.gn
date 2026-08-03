@@ -87,7 +87,10 @@ ohos_copy("ace_loader") {
 }
 
 ohos_copy("ace_loader_library") {
-  deps = [ ":build_ace_loader_library" ]
+  deps = [
+    ":build_ace_loader_library",
+    ":remove_unwanted_node_modules_files",
+  ]
   sources = [ ace_loader_lib_dir ]
   outputs = [ target_out_dir + "/$target_name" ]
   module_source_dir = target_out_dir + "/$target_name"
@@ -116,6 +119,27 @@ ohos_copy("ace_loader_ark") {
   sources = ace_loader_sources
   outputs = [ target_out_dir + "/$target_name/{{source_file_part}}" ]
   license_file = "//third_party/parse5/LICENSE"
+}
+
+ace_loader_output_dir =
+    get_label_info(":ace_loader", "target_out_dir") + "/ace_loader"
+
+action("remove_unwanted_node_modules_files") {
+  deps = [
+    ":ace_loader",
+    ":ace_loader_ark",
+  ]
+  script = "remove_unwanted_files.py"
+  outputs = [ "$target_gen_dir/$target_name.stamp" ]
+  args = [
+    "--stamp",
+    rebase_path(outputs[0], root_build_dir),
+    "--output-dirs",
+    rebase_path(ace_loader_output_dir, root_build_dir),
+    rebase_path(ace_loader_ark_dir, root_build_dir),
+    "--remove-files",
+    "node_modules/reusify/.coveralls.yml",
+  ]
 }
 
 ohos_copy("ace_loader_ark_hap") {
