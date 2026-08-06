@@ -43,7 +43,7 @@ const webpackConfig = {
   watchOptions: {
     aggregateTimeout: 10,
     poll: false,
-    ignored: /node_modules/,
+    ignored: /node_modules|^[A-Z]:\/[^/]+$/i,
   },
   optimization: {
     moduleIds: 'deterministic',
@@ -210,6 +210,9 @@ module.exports = (env) => {
       './node_modules',
       './oh_modules'
     ]
+  }
+  webpackConfig.resolveLoader = {
+    modules: [path.join(__dirname, 'node_modules')]
   }
   if (fs.existsSync(path.resolve(process.env.projectPath, 'i18n'))) {
     webpackConfig.plugins.push(new CopyPlugin({
