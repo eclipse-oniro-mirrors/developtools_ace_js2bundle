@@ -175,7 +175,7 @@ let config = {
   watchOptions: {
     aggregateTimeout: 10,
     poll: false,
-    ignored: ["**/node_modules", "**/oh_modules", "**/*.json~"]
+    ignored: /node_modules|oh_modules|\.json~|^[A-Z]:\/[^/]+$/i
   },
   optimization: {
     moduleIds: 'deterministic',
@@ -362,6 +362,9 @@ module.exports = (env) => {
     ],
     descriptionFiles: ['package.json', 'oh-package.json5'],
     plugins: [new ReadJsonPlugin()],
+  }
+  config.resolveLoader = {
+    modules: [path.join(__dirname, 'node_modules')]
   }
   if (fs.existsSync(path.resolve(process.env.projectPath, 'i18n'))) {
     config.plugins.push(new CopyPlugin({
