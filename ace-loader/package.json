@@ -17,7 +17,7 @@
     "rich": "cd sample/rich && webpack --config ../../webpack.rich.config.js",
     "lite": "cd sample/lite && webpack --config ../../webpack.lite.config.js",
     "card": "cd sample/card && webpack --config ../../webpack.rich.config.js",
-    "postinstall": "node npm-install.js",
+    "postinstall": "node npm-install.js && npm run build",
     "richtest": "cd test/rich/testcase && webpack --config ../../../webpack.rich.config.js && mocha ../test.js",
     "litetest": "cd test/lite/testcase && webpack --config ../../../webpack.lite.config.js && mocha ../test.js",
     "cardtest": "cd test/card/testcase && webpack --config ../../../webpack.rich.config.js && mocha ../test.js",

@@ -16,6 +16,8 @@
 const componentValidator = require('./component_validator')
 const parse5 = require('../parse/index')
 const path = require('path')
+const { DEVICE_LEVEL } = require('../../lib/lite/lite-enum');
+const { liteNativeTag } = require('./lite_component_map');
 let compileResult
 const EVENT_START_REGEXP = /^(on:|on|@|grab:)/
 const REGEXP_TEXT = /^#/
@@ -50,6 +52,7 @@ function parse(source, operate, filePath) {
     }
   })
   generate(rootArray[rootIndex], filePath, undefined, relativePath)
+  filterSvgNestingMustBeClosedErrors(compileResult);
   operate(null, compileResult)
 }
 
@@ -292,6 +295,26 @@ function checkNodeChildren(node, filePath, relativePath) {
     }
   }
   compileResult.jsonTemplate=temp
+}
+
+function filterSvgNestingMustBeClosedErrors(compileResult) {
+  if (process.env.DEVICE_LEVEL !== DEVICE_LEVEL.LITE) {
+    return;
+  }
+  if (!compileResult.log || !compileResult.log.length) {
+    return;
+  }
+  const tagsWithChildren = Object.keys(liteNativeTag).filter(function(tag) {
+    const def = liteNativeTag[tag];
+    return def && Array.isArray(def.children) && def.children.length > 0;
+  });
+  compileResult.log = compileResult.log.filter(function(item) {
+    const match = item.reason && item.reason.match(/tag `(.+)` must be closed/);
+    if (!match) {
+      return true;
+    }
+    return !tagsWithChildren.includes(match[1]);
+  });
 }
 
 module.exports = { parse: parse }
