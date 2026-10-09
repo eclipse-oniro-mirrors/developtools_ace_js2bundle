@@ -1285,6 +1285,22 @@ function isSupportedSelfClosing(tagName) {
   return false
 }
 
+function isAtomicTag(tagName) {
+  if (tagName && typeof tagName === 'string') {
+    const n = aliasTagMap[tagName];
+    if (n) {
+      if (nativeTag[n] && tagWithoutChild.indexOf(n) !== -1) {
+        return true;
+      }
+    } else {
+      if (nativeTag[tagName] && tagWithoutChild.indexOf(tagName) !== -1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function validateDataAttr(e) {
   return REG_TAG_DATA_ATTR.test(e)
 }
@@ -1320,5 +1336,6 @@ module.exports = {
 
   isReservedTag: isReservedTag,
   isSupportedSelfClosing: isSupportedSelfClosing,
+  isAtomicTag: isAtomicTag,
   elementNames: elementNames
 }
