@@ -511,10 +511,9 @@ function initAbcEnv() {
       args.push('--debug-info');
     }
     const manifest = readManifest(process.env.aceManifestPath);
-    const minPlatformVersion = isValidSdkVersion(process.env.minPlatformVersion) ?
-      process.env.minPlatformVersion : manifest.minPlatformVersion;
-    if (isValidSdkVersion(minPlatformVersion)) {
-      args.push(`--target-api-version=${minPlatformVersion}`);
+    const targetApiVersion = getEffectiveTargetApiVersion(manifest);
+    if (targetApiVersion !== undefined) {
+      args.push(`--target-api-version=${targetApiVersion}`);
     }
     if (isValidSdkVersion(manifest.compatibleSdkVersionStage)) {
       args.push(`--target-api-sub-version=${manifest.compatibleSdkVersionStage}`);
@@ -540,6 +539,24 @@ function readManifest(manifestFilePath) {
 
 function isValidSdkVersion(version) {
   return version !== undefined && version !== 'undefined' && version !== '';
+}
+
+const MIN_DOTTED_API_VERSION = 26;
+
+function isValidDotVersion(version) {
+  return typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version);
+}
+
+function getEffectiveTargetApiVersion(manifest) {
+  const minPlatformDotVersion = isValidDotVersion(process.env.minPlatformDotVersion) ?
+    process.env.minPlatformDotVersion : manifest.minPlatformDotVersion;
+  const minPlatformVersion = isValidSdkVersion(process.env.minPlatformVersion) ?
+    process.env.minPlatformVersion : manifest.minPlatformVersion;
+  if (isValidDotVersion(minPlatformDotVersion) &&
+    Number(minPlatformVersion) >= MIN_DOTTED_API_VERSION) {
+    return minPlatformDotVersion;
+  }
+  return isValidSdkVersion(minPlatformVersion) ? minPlatformVersion : undefined;
 }
 
 export function isWindows() {
@@ -779,19 +796,21 @@ function clearWebpackCacheByBuildInfo() {
       return;
     }
     // api version is 8 or 9
+    const targetApiVersion = getEffectiveTargetApiVersion(readManifest(process.env.aceManifestPath));
     if (cachedJson && cachedJson.minAPIVersion &&
-      cachedJson.minAPIVersion.toString() !== process.env.minPlatformVersion) {
+      cachedJson.minAPIVersion.toString() !== targetApiVersion) {
       removeHashJsonFile();
     }
   }
 }
 
 function setPrebuildInfo() {
-  if (process.env.cachePath && process.env.minPlatformVersion) {
+  const targetApiVersion = getEffectiveTargetApiVersion(readManifest(process.env.aceManifestPath));
+  if (process.env.cachePath && targetApiVersion) {
     let cachedJson = {};
     const cachePrebuildInfoPath = path.join(process.env.cachePath, PREBUILDINFO_JSON);
     validateFilePathLength(cachePrebuildInfoPath);
-    cachedJson.minAPIVersion = process.env.minPlatformVersion;
+    cachedJson.minAPIVersion = targetApiVersion;
     fs.writeFile(cachePrebuildInfoPath, JSON.stringify(cachedJson, null, 2), 'utf-8',
       (err) => {
         if (err) {
