@@ -13,6 +13,7 @@
 
 import("//build/ohos.gni")
 import("//build/ohos/ace/ace.gni")
+import("//build/ohos/ace/loader_ark_layout.gni")
 import("//foundation/arkui/ace_engine/ace_config.gni")
 
 ace_loader_lib_dir =
@@ -143,6 +144,13 @@ action("remove_unwanted_node_modules_files") {
 }
 
 ohos_copy("ace_loader_ark_hap") {
+  stable_directory_copy_preserve = []
+  foreach(_entry, ace_loader_weex_files + ace_loader_shared_directories) {
+    stable_directory_copy_preserve += [ ace_loader_ark_dir + "/lib/" + _entry ]
+  }
+
+  # Other targets also populate children of this output directory.
+  stable_directory_copy = build_framework_enable_incremental_build && !build_xts
   deps = [
     ":ace_loader",
     ":ace_loader_ark",
