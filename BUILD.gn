@@ -15,6 +15,11 @@ import("//build/ohos.gni")
 import("//build/ohos/ace/ace.gni")
 import("//foundation/arkui/ace_engine/ace_config.gni")
 
+# Disabled-feature copies do not require the incremental layout extension.
+if (build_framework_enable_incremental_build) {
+  import("//build/ohos/ace/loader_ark_layout.gni")
+}
+
 ace_loader_lib_dir =
     get_label_info(":build_ace_loader_library", "target_out_dir") + "/lib"
 
@@ -143,6 +148,15 @@ action("remove_unwanted_node_modules_files") {
 }
 
 ohos_copy("ace_loader_ark_hap") {
+  if (build_framework_enable_incremental_build) {
+    # Other targets also populate children of this output directory.
+    stable_directory_copy = true
+    stable_directory_copy_preserve = []
+    foreach(_entry, ace_loader_weex_files + ace_loader_shared_directories) {
+      stable_directory_copy_preserve +=
+          [ ace_loader_ark_dir + "/lib/" + _entry ]
+    }
+  }
   deps = [
     ":ace_loader",
     ":ace_loader_ark",
