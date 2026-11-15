@@ -1,0 +1,6 @@
+.container {
+  flex-direction: column;
+}
+.title {
+  font-size: 30px;
+}

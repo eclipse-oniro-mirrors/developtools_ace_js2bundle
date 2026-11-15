@@ -319,6 +319,105 @@ function excludeWorker(workerFile, name) {
 }
 
 /**
+ * Build the release Terser minimizer. Single source of truth shared by the
+ * release branch and the debug minify parameter (literal-for-literal move of
+ * the former release inline definition).
+ * @returns {Array} minimizer list for webpack optimization
+ */
+function buildReleaseTerserMinimizer() {
+  return [new TerserPlugin({
+    terserOptions: {
+      compress: {
+        defaults: false,
+        dead_code: true,
+        collapse_vars: true,
+        unused: true,
+        drop_debugger: true,
+        if_return: true,
+        reduce_vars: true,
+        join_vars: false,
+        sequences: 0,
+      },
+      format: {
+        semicolons: false,
+        beautify: true,
+        braces: true,
+        indent_level: 2,
+      },
+    },
+  })];
+}
+
+/**
+ * Apply the release source-map layout: maps keep being generated (devtool is
+ * untouched) but are redirected to _releaseMap/ so they are not packaged
+ * into the hap. Shared by the release branch and the debug modifySourceMap
+ * parameter.
+ * @param {Object} cfg - webpack configuration
+ */
+function applyReleaseSourceMapLayout(cfg) {
+  cfg.output.devtoolModuleFilenameTemplate = (info) => {
+    const newInfo = info.absoluteResourcePath.replace(process.env.projectRootPath + path.sep, '')
+      .replace(process.env.projectRootPath + path.sep, '')
+      .replace(path.join(__dirname, path.sep), '');
+    return newInfo;
+  };
+  cfg.output.sourceMapFilename = '_releaseMap/[name].js.map';
+}
+
+/**
+ * Whether an env flag is enabled. Only true / 'true' counts; any other value
+ * (false/undefined/not set/invalid) silently falls back to default behavior.
+ * @param {boolean|string} value - env flag value
+ * @returns {boolean} enabled or not
+ */
+function isFlagEnabled(value) {
+  return value === true || value === 'true';
+}
+
+/**
+ * Resolve the webpack filesystem cache directory. Debug builds carrying the
+ * minify / modifySourceMap parameters use dedicated variant directories so
+ * cached assets from parameter-less builds never leak across layouts.
+ * @param {Object} env - Environment options
+ * @returns {string} cache directory path
+ */
+function resolveCacheDirectory(env) {
+  const debugCacheVariant = process.env.buildMode === 'debug' ?
+    (isFlagEnabled(process.env.minify) ? 'minify' : '') + (isFlagEnabled(process.env.modifySourceMap) ? 'map' : '') : '';
+  return path.resolve(process.env.cachePath, '.rich_cache',
+    path.basename(process.env.projectPath) + (debugCacheVariant ? '-' + debugCacheVariant : ''));
+}
+
+/**
+ * Apply the build-mode specific optimization settings. The release branch
+ * keeps its historical behavior; the debug branch consumes the minify /
+ * modifySourceMap parameters (the release branch never reads them).
+ * @param {Object} env - Environment options
+ * @param {Object} config - webpack configuration
+ */
+function applyBuildModeOptimizations(env, config) {
+  if (env.buildMode === 'release') {
+    config.mode = 'production';
+    Object.assign(config.optimization, {
+      minimize: true,
+      minimizer: buildReleaseTerserMinimizer(),
+    });
+    applyReleaseSourceMapLayout(config);
+  } else if (process.env.buildMode === 'debug') {
+    if (isFlagEnabled(process.env.minify)) {
+      Object.assign(config.optimization, {
+        minimize: true,
+        minimizer: buildReleaseTerserMinimizer(),
+      });
+    }
+    if (isFlagEnabled(process.env.modifySourceMap)) {
+      applyReleaseSourceMapLayout(config);
+    }
+  }
+}
+
+/**
  * Export factory for Webpack configuration.
  * Builds the final config object using the provided environment variables.
  * @param {Object} env - Environment options
@@ -338,8 +437,7 @@ module.exports = (env) => {
     existsPackageJson(config, path.resolve(process.env.projectPath, '../../../../../package.json'),
       path.resolve(process.env.projectPath, '../../../../package.json'));
   }
-  config.cache.cacheDirectory = path.resolve(process.env.cachePath, '.rich_cache',
-    path.basename(process.env.projectPath));
+  config.cache.cacheDirectory = resolveCacheDirectory(env);
   config.output.path = path.resolve(__dirname, process.env.buildPath)
   config.plugins = [
     new ResourcePlugin(process.env.projectPath, process.env.buildPath,
@@ -421,40 +519,7 @@ module.exports = (env) => {
     if (env.sourceMap === 'none') {
       config.devtool = false
     }
-    if (env.buildMode === 'release') {
-      config.mode = 'production';
-      Object.assign(config.optimization, {
-        minimize: true,
-        minimizer: [new TerserPlugin({
-          terserOptions: {
-            compress: {
-              defaults: false,
-              dead_code: true,
-              collapse_vars: true,
-              unused: true,
-              drop_debugger: true,
-              if_return: true,
-              reduce_vars: true,
-              join_vars: false,
-              sequences: 0,
-            },
-            format: {
-              semicolons: false,
-              beautify: true,
-              braces: true,
-              indent_level: 2,
-            },
-          },
-        })],
-      });
-      config.output.devtoolModuleFilenameTemplate = (info) => {
-        const newInfo = info.absoluteResourcePath.replace(process.env.projectRootPath + path.sep, '')
-          .replace(process.env.projectRootPath + path.sep, '')
-          .replace(path.join(__dirname, path.sep), '');
-        return newInfo;
-      }
-      config.output.sourceMapFilename = '_releaseMap/[name].js.map'
-    }
+    applyBuildModeOptimizations(env, config);
   }
   if (process.env.abilityType === 'testrunner') {
     config.module.rules = [];
