@@ -176,6 +176,52 @@ function setConfigs(env) {
 }
 
 /**
+ * Whether an env flag is enabled. Only true / 'true' counts; any other value
+ * (false/undefined/not set/invalid) silently falls back to default behavior.
+ * @param {boolean|string} value - env flag value
+ * @returns {boolean} enabled or not
+ */
+function isFlagEnabled(value) {
+  return value === true || value === 'true';
+}
+
+/**
+ * Mount the lite snapshot plugin converting bundled .js files to .bc
+ * snapshots. Single source of truth shared by the release branch and the
+ * debug minify parameter.
+ * @param {Object} webpackConfig - webpack configuration
+ */
+function applyLiteSnapshotPlugin(webpackConfig) {
+  webpackConfig.plugins.push(
+    new SnapshotPlugin({ build: process.env.buildPath })
+  );
+}
+
+/**
+ * Redirect source maps to _releaseMap/ so they are not packaged into the
+ * hap. Shared by the release branch and the debug modifySourceMap parameter.
+ * @param {Object} webpackConfig - webpack configuration
+ */
+function applyLiteSourceMapRedirect(webpackConfig) {
+  webpackConfig.output.sourceMapFilename = '_releaseMap/[name].js.map';
+}
+
+/**
+ * Build the lite mangle-only minimizer (compress disabled so the bundle keeps
+ * the same obfuscation form as hapMode release builds). Single source of
+ * truth shared by the hapMode branch and the debug minify parameter.
+ * @returns {Array} minimizer list for webpack optimization
+ */
+function buildLiteMangleMinimizer() {
+  return [new TerserPlugin({
+    terserOptions: {
+      compress: false,
+      mangle: true,
+    },
+  })];
+}
+
+/**
  * Lite webpack config factory.
  * Returns a webpack configuration object tailored for Lite devices.
  * @param {Object} env - Environment options
@@ -186,7 +232,10 @@ module.exports = (env) => {
   deleteFolderRecursive(process.env.buildPath);
   existsPackageJson(webpackConfig, path.resolve(process.env.projectPath, '../../../../../oh-package.json5'),
     path.resolve(process.env.projectPath, '../../../../oh-package.json5'));
-  webpackConfig.cache.cacheDirectory = path.resolve(process.env.cachePath, '.lite_cache');
+  const debugCacheVariant = process.env.buildMode === 'debug' ?
+    (isFlagEnabled(process.env.minify) ? 'minify' : '') + (isFlagEnabled(process.env.modifySourceMap) ? 'map' : '') : '';
+  webpackConfig.cache.cacheDirectory = path.resolve(process.env.cachePath,
+    '.lite_cache' + (debugCacheVariant ? '-' + debugCacheVariant : ''));
   webpackConfig.entry = loadEntryObj(process.env.projectPath, process.env.DEVICE_LEVEL,
     process.env.abilityType, process.env.aceManifestPath)
   webpackConfig.output.path = path.resolve(__dirname, process.env.buildPath)
@@ -229,13 +278,7 @@ module.exports = (env) => {
   if (process.env.hapMode && process.env.hapMode === 'true') {
     webpackConfig.optimization = {
       minimize: true,
-      minimizer: [new TerserPlugin({
-        terserOptions: {
-          compress: false,
-          mangle: true,
-        },
-      },
-      )],
+      minimizer: buildLiteMangleMinimizer(),
     };
   }
 
@@ -258,10 +301,19 @@ module.exports = (env) => {
   if (env.buildMode === 'release') {
     webpackConfig.devtool = 'source-map'
     webpackConfig.mode = 'production';
-    webpackConfig.plugins.push(
-      new SnapshotPlugin({ build: process.env.buildPath })
-    );
-    webpackConfig.output.sourceMapFilename = '_releaseMap/[name].js.map'
+    applyLiteSnapshotPlugin(webpackConfig);
+    applyLiteSourceMapRedirect(webpackConfig);
+  } else if (process.env.buildMode === 'debug') {
+    if (isFlagEnabled(process.env.minify)) {
+      applyLiteSnapshotPlugin(webpackConfig);
+      if (!webpackConfig.optimization.minimizer) {
+        webpackConfig.optimization.minimize = true;
+        webpackConfig.optimization.minimizer = buildLiteMangleMinimizer();
+      }
+    }
+    if (isFlagEnabled(process.env.modifySourceMap)) {
+      applyLiteSourceMapRedirect(webpackConfig);
+    }
   }
   checkFilePath();
   return webpackConfig;

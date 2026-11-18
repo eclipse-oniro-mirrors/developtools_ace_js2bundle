@@ -1,0 +1,10 @@
+{
+  "appID": "com.example.ace.debugfeatures",
+  "appName": "DebugFeatures",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "minPlatformVersion": "5.0.0",
+  "pages": [
+    "pages/index/index"
+  ]
+}
